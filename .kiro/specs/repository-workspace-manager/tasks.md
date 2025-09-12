@@ -1,6 +1,6 @@
 # 实施计划
 
-- [ ] 1. 项目初始化和基础架构搭建
+- [x] 1. 项目初始化和基础架构搭建
   - 创建 Tauri 项目结构，配置 Vue 3 + TypeScript 前端
   - 设置 shadcn-vue UI 组件库和 Tailwind CSS
   - 配置 Pinia 状态管理和项目构建工具
