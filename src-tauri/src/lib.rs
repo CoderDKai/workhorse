@@ -1,6 +1,7 @@
 pub mod database;
 pub mod app_state;
 pub mod commands;
+pub mod services;
 
 use app_state::AppState;
 
@@ -27,6 +28,19 @@ pub fn run() {
                 commands::archive_workspace,
                 commands::restore_workspace,
                 commands::delete_workspace,
+                // Git operations
+                commands::get_git_status,
+                commands::get_git_branches,
+                commands::create_git_worktree,
+                commands::list_git_worktrees,
+                commands::remove_git_worktree,
+                commands::checkout_git_branch,
+                commands::create_git_branch,
+                commands::is_git_repository,
+                commands::init_git_repository,
+                commands::clone_git_repository,
+                commands::set_global_gitignore,
+                commands::get_global_gitignore,
             ])
             .run(tauri::generate_context!())
             .expect("error while running tauri application");

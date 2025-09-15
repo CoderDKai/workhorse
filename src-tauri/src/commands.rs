@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::app_state::AppState;
 use crate::database::models::{Repository, Workspace, CreateRepositoryRequest, CreateWorkspaceRequest, UpdateRepositoryRequest};
+use crate::services::GitService;
+use crate::services::git_service::{GitStatus, GitBranch, WorktreeInfo};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ApiResponse<T> {
@@ -148,5 +150,119 @@ pub async fn delete_workspace(
     match state.workspace_service.delete(&id).await {
         Ok(deleted) => Ok(ApiResponse::success(deleted)),
         Err(e) => Ok(ApiResponse::error(format!("Failed to delete workspace: {}", e))),
+    }
+}
+
+// Git Operations Commands
+
+#[tauri::command]
+pub async fn get_git_status(repo_path: String) -> Result<ApiResponse<GitStatus>, String> {
+    match GitService::get_repository_status(&repo_path) {
+        Ok(status) => Ok(ApiResponse::success(status)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to get git status: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn get_git_branches(repo_path: String) -> Result<ApiResponse<Vec<GitBranch>>, String> {
+    match GitService::get_branches(&repo_path) {
+        Ok(branches) => Ok(ApiResponse::success(branches)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to get branches: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn create_git_worktree(
+    repo_path: String,
+    worktree_name: String,
+    worktree_path: String,
+    branch_name: Option<String>,
+) -> Result<ApiResponse<bool>, String> {
+    match GitService::create_worktree(&repo_path, &worktree_name, &worktree_path, branch_name.as_deref()) {
+        Ok(_) => Ok(ApiResponse::success(true)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to create worktree: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn list_git_worktrees(repo_path: String) -> Result<ApiResponse<Vec<WorktreeInfo>>, String> {
+    match GitService::list_worktrees(&repo_path) {
+        Ok(worktrees) => Ok(ApiResponse::success(worktrees)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to list worktrees: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn remove_git_worktree(
+    repo_path: String,
+    worktree_name: String,
+) -> Result<ApiResponse<bool>, String> {
+    match GitService::remove_worktree(&repo_path, &worktree_name) {
+        Ok(_) => Ok(ApiResponse::success(true)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to remove worktree: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn checkout_git_branch(
+    repo_path: String,
+    branch_name: String,
+) -> Result<ApiResponse<bool>, String> {
+    match GitService::checkout_branch(&repo_path, &branch_name) {
+        Ok(_) => Ok(ApiResponse::success(true)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to checkout branch: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn create_git_branch(
+    repo_path: String,
+    branch_name: String,
+    from_branch: Option<String>,
+) -> Result<ApiResponse<bool>, String> {
+    match GitService::create_branch(&repo_path, &branch_name, from_branch.as_deref()) {
+        Ok(_) => Ok(ApiResponse::success(true)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to create branch: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn is_git_repository(path: String) -> Result<ApiResponse<bool>, String> {
+    let is_repo = GitService::is_git_repository(&path);
+    Ok(ApiResponse::success(is_repo))
+}
+
+#[tauri::command]
+pub async fn init_git_repository(path: String, bare: bool) -> Result<ApiResponse<bool>, String> {
+    match GitService::init_repository(&path, bare) {
+        Ok(_) => Ok(ApiResponse::success(true)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to initialize repository: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn clone_git_repository(
+    url: String,
+    path: String,
+) -> Result<ApiResponse<bool>, String> {
+    match GitService::clone_repository(&url, &path, None) {
+        Ok(_) => Ok(ApiResponse::success(true)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to clone repository: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn set_global_gitignore(gitignore_path: String) -> Result<ApiResponse<bool>, String> {
+    match GitService::set_global_gitignore(&gitignore_path) {
+        Ok(_) => Ok(ApiResponse::success(true)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to set global gitignore: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn get_global_gitignore() -> Result<ApiResponse<Option<String>>, String> {
+    match GitService::get_global_gitignore() {
+        Ok(path) => Ok(ApiResponse::success(path)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to get global gitignore: {}", e))),
     }
 }
