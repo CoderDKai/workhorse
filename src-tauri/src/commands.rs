@@ -3,8 +3,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::app_state::AppState;
 use crate::database::models::{Repository, Workspace, CreateRepositoryRequest, CreateWorkspaceRequest, UpdateRepositoryRequest};
-use crate::services::GitService;
+use crate::services::{GitService, RepositoryManagerService};
 use crate::services::git_service::{GitStatus, GitBranch, WorktreeInfo};
+use crate::services::repository_service::{RepositoryConfig, RepositoryValidationResult, AddRepositoryRequest, RepositoryScript};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ApiResponse<T> {
@@ -265,4 +266,106 @@ pub async fn get_global_gitignore() -> Result<ApiResponse<Option<String>>, Strin
         Ok(path) => Ok(ApiResponse::success(path)),
         Err(e) => Ok(ApiResponse::error(format!("Failed to get global gitignore: {}", e))),
     }
+}
+
+// Repository Management Commands
+
+#[tauri::command]
+pub async fn validate_repository(repo_path: String) -> Result<ApiResponse<RepositoryValidationResult>, String> {
+    match RepositoryManagerService::validate_repository(&repo_path) {
+        Ok(result) => Ok(ApiResponse::success(result)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to validate repository: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn add_repository_management(
+    request: AddRepositoryRequest,
+) -> Result<ApiResponse<RepositoryConfig>, String> {
+    match RepositoryManagerService::add_repository(request) {
+        Ok(config) => Ok(ApiResponse::success(config)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to add repository: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn load_repository_config(repo_path: String) -> Result<ApiResponse<RepositoryConfig>, String> {
+    match RepositoryManagerService::load_repository_config(&repo_path) {
+        Ok(config) => Ok(ApiResponse::success(config)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to load repository config: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn is_managed_repository(repo_path: String) -> Result<ApiResponse<bool>, String> {
+    let is_managed = RepositoryManagerService::is_managed_repository(&repo_path);
+    Ok(ApiResponse::success(is_managed))
+}
+
+#[tauri::command]
+pub async fn remove_repository_management(repo_path: String) -> Result<ApiResponse<bool>, String> {
+    match RepositoryManagerService::remove_repository_management(&repo_path) {
+        Ok(_) => Ok(ApiResponse::success(true)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to remove repository management: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn add_repository_script(
+    repo_path: String,
+    script: RepositoryScript,
+) -> Result<ApiResponse<RepositoryConfig>, String> {
+    match RepositoryManagerService::add_script(&repo_path, script) {
+        Ok(config) => Ok(ApiResponse::success(config)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to add script: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn remove_repository_script(
+    repo_path: String,
+    script_name: String,
+) -> Result<ApiResponse<RepositoryConfig>, String> {
+    match RepositoryManagerService::remove_script(&repo_path, &script_name) {
+        Ok(config) => Ok(ApiResponse::success(config)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to remove script: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn get_repository_scripts(repo_path: String) -> Result<ApiResponse<Vec<RepositoryScript>>, String> {
+    match RepositoryManagerService::get_scripts(&repo_path) {
+        Ok(scripts) => Ok(ApiResponse::success(scripts)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to get scripts: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn create_workhorse_directory(repo_path: String) -> Result<ApiResponse<String>, String> {
+    match RepositoryManagerService::create_workhorse_directory(&repo_path) {
+        Ok(workhorse_dir) => Ok(ApiResponse::success(workhorse_dir.to_string_lossy().to_string())),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to create workhorse directory: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn cleanup_repository_temp_files(repo_path: String) -> Result<ApiResponse<bool>, String> {
+    match RepositoryManagerService::cleanup_temp_files(&repo_path) {
+        Ok(_) => Ok(ApiResponse::success(true)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to cleanup temp files: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn get_repository_directories(repo_path: String) -> Result<ApiResponse<serde_json::Value>, String> {
+    let directories = serde_json::json!({
+        "workhorse": RepositoryManagerService::get_workspaces_dir(&repo_path).to_string_lossy(),
+        "workspaces": RepositoryManagerService::get_workspaces_dir(&repo_path).to_string_lossy(),
+        "configs": RepositoryManagerService::get_configs_dir(&repo_path).to_string_lossy(),
+        "scripts": RepositoryManagerService::get_scripts_dir(&repo_path).to_string_lossy(),
+        "logs": RepositoryManagerService::get_logs_dir(&repo_path).to_string_lossy(),
+        "temp": RepositoryManagerService::get_temp_dir(&repo_path).to_string_lossy(),
+    });
+    
+    Ok(ApiResponse::success(directories))
 }

@@ -41,6 +41,18 @@ pub fn run() {
                 commands::clone_git_repository,
                 commands::set_global_gitignore,
                 commands::get_global_gitignore,
+                // Repository management
+                commands::validate_repository,
+                commands::add_repository_management,
+                commands::load_repository_config,
+                commands::is_managed_repository,
+                commands::remove_repository_management,
+                commands::add_repository_script,
+                commands::remove_repository_script,
+                commands::get_repository_scripts,
+                commands::create_workhorse_directory,
+                commands::cleanup_repository_temp_files,
+                commands::get_repository_directories,
             ])
             .run(tauri::generate_context!())
             .expect("error while running tauri application");
