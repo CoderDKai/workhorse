@@ -10,7 +10,10 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "type-check": "vue-tsc --noEmit"
+    "type-check": "vue-tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:ui": "vitest --ui"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
@@ -25,9 +28,12 @@
     "@tailwindcss/vite": "^4.1.13",
     "@tauri-apps/cli": "^2",
     "@vitejs/plugin-vue": "^5.2.1",
+    "@vue/test-utils": "^2.4.3",
+    "jsdom": "^25.0.1",
     "tailwindcss": "^4.1.13",
     "typescript": "~5.6.2",
     "vite": "^6.0.3",
+    "vitest": "^2.1.8",
     "vue-tsc": "^2.1.10"
   }
 }
