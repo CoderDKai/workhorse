@@ -3,9 +3,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::app_state::AppState;
 use crate::database::models::{Repository, Workspace, CreateRepositoryRequest, CreateWorkspaceRequest, UpdateRepositoryRequest};
-use crate::services::{GitService, RepositoryManagerService};
+use crate::services::{GitService, RepositoryManagerService, WorkspaceManagerService};
 use crate::services::git_service::{GitStatus, GitBranch, WorktreeInfo};
 use crate::services::repository_service::{RepositoryConfig, RepositoryValidationResult, AddRepositoryRequest, RepositoryScript};
+use crate::services::workspace_service::{WorkspaceMetadata, WorkspaceInfo, CreateWorkspaceRequest as CreateManagedWorkspaceRequest, ArchiveWorkspaceRequest, WorkspaceStatus};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ApiResponse<T> {
@@ -368,4 +369,182 @@ pub async fn get_repository_directories(repo_path: String) -> Result<ApiResponse
     });
     
     Ok(ApiResponse::success(directories))
+}
+
+// Workspace Management Commands
+
+#[tauri::command]
+pub async fn create_managed_workspace(
+    repo_path: String,
+    request: CreateManagedWorkspaceRequest,
+) -> Result<ApiResponse<WorkspaceMetadata>, String> {
+    match WorkspaceManagerService::create_workspace(&std::path::Path::new(&repo_path), request) {
+        Ok(metadata) => Ok(ApiResponse::success(metadata)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to create workspace: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn list_managed_workspaces(repo_path: String) -> Result<ApiResponse<Vec<WorkspaceMetadata>>, String> {
+    match WorkspaceManagerService::list_workspaces(&std::path::Path::new(&repo_path)) {
+        Ok(workspaces) => Ok(ApiResponse::success(workspaces)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to list workspaces: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn get_managed_workspace_info(
+    repo_path: String,
+    workspace_id: String,
+) -> Result<ApiResponse<WorkspaceInfo>, String> {
+    match WorkspaceManagerService::get_workspace_info(&std::path::Path::new(&repo_path), &workspace_id) {
+        Ok(info) => Ok(ApiResponse::success(info)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to get workspace info: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn archive_managed_workspace(
+    repo_path: String,
+    request: ArchiveWorkspaceRequest,
+) -> Result<ApiResponse<WorkspaceMetadata>, String> {
+    match WorkspaceManagerService::archive_workspace(&std::path::Path::new(&repo_path), request) {
+        Ok(metadata) => Ok(ApiResponse::success(metadata)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to archive workspace: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn restore_managed_workspace(
+    repo_path: String,
+    workspace_id: String,
+) -> Result<ApiResponse<WorkspaceMetadata>, String> {
+    match WorkspaceManagerService::restore_workspace(&std::path::Path::new(&repo_path), &workspace_id) {
+        Ok(metadata) => Ok(ApiResponse::success(metadata)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to restore workspace: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn delete_managed_workspace(
+    repo_path: String,
+    workspace_id: String,
+) -> Result<ApiResponse<bool>, String> {
+    match WorkspaceManagerService::delete_workspace(&std::path::Path::new(&repo_path), &workspace_id) {
+        Ok(_) => Ok(ApiResponse::success(true)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to delete workspace: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn update_managed_workspace_status(
+    repo_path: String,
+    workspace_id: String,
+) -> Result<ApiResponse<WorkspaceMetadata>, String> {
+    match WorkspaceManagerService::update_workspace_status(&std::path::Path::new(&repo_path), &workspace_id) {
+        Ok(metadata) => Ok(ApiResponse::success(metadata)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to update workspace status: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn access_managed_workspace(
+    repo_path: String,
+    workspace_id: String,
+) -> Result<ApiResponse<WorkspaceMetadata>, String> {
+    match WorkspaceManagerService::access_workspace(&std::path::Path::new(&repo_path), &workspace_id) {
+        Ok(metadata) => Ok(ApiResponse::success(metadata)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to access workspace: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn add_workspace_tag(
+    repo_path: String,
+    workspace_id: String,
+    tag: String,
+) -> Result<ApiResponse<WorkspaceMetadata>, String> {
+    match WorkspaceManagerService::add_workspace_tag(&std::path::Path::new(&repo_path), &workspace_id, tag) {
+        Ok(metadata) => Ok(ApiResponse::success(metadata)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to add workspace tag: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn remove_workspace_tag(
+    repo_path: String,
+    workspace_id: String,
+    tag: String,
+) -> Result<ApiResponse<WorkspaceMetadata>, String> {
+    match WorkspaceManagerService::remove_workspace_tag(&std::path::Path::new(&repo_path), &workspace_id, &tag) {
+        Ok(metadata) => Ok(ApiResponse::success(metadata)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to remove workspace tag: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn set_workspace_custom_field(
+    repo_path: String,
+    workspace_id: String,
+    key: String,
+    value: String,
+) -> Result<ApiResponse<WorkspaceMetadata>, String> {
+    match WorkspaceManagerService::set_custom_field(&std::path::Path::new(&repo_path), &workspace_id, key, value) {
+        Ok(metadata) => Ok(ApiResponse::success(metadata)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to set custom field: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn remove_workspace_custom_field(
+    repo_path: String,
+    workspace_id: String,
+    key: String,
+) -> Result<ApiResponse<WorkspaceMetadata>, String> {
+    match WorkspaceManagerService::remove_custom_field(&std::path::Path::new(&repo_path), &workspace_id, &key) {
+        Ok(metadata) => Ok(ApiResponse::success(metadata)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to remove custom field: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn find_workspaces_by_tag(
+    repo_path: String,
+    tag: String,
+) -> Result<ApiResponse<Vec<WorkspaceMetadata>>, String> {
+    match WorkspaceManagerService::find_workspaces_by_tag(&std::path::Path::new(&repo_path), &tag) {
+        Ok(workspaces) => Ok(ApiResponse::success(workspaces)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to find workspaces by tag: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn find_workspaces_by_status(
+    repo_path: String,
+    status: WorkspaceStatus,
+) -> Result<ApiResponse<Vec<WorkspaceMetadata>>, String> {
+    match WorkspaceManagerService::find_workspaces_by_status(&std::path::Path::new(&repo_path), status) {
+        Ok(workspaces) => Ok(ApiResponse::success(workspaces)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to find workspaces by status: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn cleanup_broken_workspaces(
+    repo_path: String,
+) -> Result<ApiResponse<Vec<String>>, String> {
+    match WorkspaceManagerService::cleanup_broken_workspaces(&std::path::Path::new(&repo_path)) {
+        Ok(cleaned_ids) => Ok(ApiResponse::success(cleaned_ids)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to cleanup broken workspaces: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn get_workspace_statistics(
+    repo_path: String,
+) -> Result<ApiResponse<serde_json::Value>, String> {
+    match WorkspaceManagerService::get_workspace_statistics(&std::path::Path::new(&repo_path)) {
+        Ok(stats) => Ok(ApiResponse::success(stats)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to get workspace statistics: {}", e))),
+    }
 }

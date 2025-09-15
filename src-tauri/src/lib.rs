@@ -53,6 +53,23 @@ pub fn run() {
                 commands::create_workhorse_directory,
                 commands::cleanup_repository_temp_files,
                 commands::get_repository_directories,
+                // Workspace management
+                commands::create_managed_workspace,
+                commands::list_managed_workspaces,
+                commands::get_managed_workspace_info,
+                commands::archive_managed_workspace,
+                commands::restore_managed_workspace,
+                commands::delete_managed_workspace,
+                commands::update_managed_workspace_status,
+                commands::access_managed_workspace,
+                commands::add_workspace_tag,
+                commands::remove_workspace_tag,
+                commands::set_workspace_custom_field,
+                commands::remove_workspace_custom_field,
+                commands::find_workspaces_by_tag,
+                commands::find_workspaces_by_status,
+                commands::cleanup_broken_workspaces,
+                commands::get_workspace_statistics,
             ])
             .run(tauri::generate_context!())
             .expect("error while running tauri application");
