@@ -4,11 +4,14 @@ use tokio::sync::RwLock;
 use anyhow::Result;
 
 use crate::database::{Database, repository::RepositoryService, workspace::WorkspaceService};
+use crate::services::{ScriptExecutor, TerminalService};
 
 pub struct AppState {
     pub database: Arc<Database>,
     pub repository_service: Arc<RepositoryService>,
     pub workspace_service: Arc<WorkspaceService>,
+    pub script_executor: Arc<ScriptExecutor>,
+    pub terminal_service: Arc<TerminalService>,
     pub data_dir: Arc<RwLock<PathBuf>>,
 }
 
@@ -24,11 +27,15 @@ impl AppState {
         // 创建服务
         let repository_service = Arc::new(RepositoryService::new(database.pool().clone()));
         let workspace_service = Arc::new(WorkspaceService::new(database.pool().clone()));
+        let script_executor = Arc::new(ScriptExecutor::new());
+        let terminal_service = Arc::new(TerminalService::new());
         
         Ok(Self {
             database,
             repository_service,
             workspace_service,
+            script_executor,
+            terminal_service,
             data_dir: Arc::new(RwLock::new(data_dir)),
         })
     }

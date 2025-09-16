@@ -1,12 +1,16 @@
 use tauri::State;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 use crate::app_state::AppState;
 use crate::database::models::{Repository, Workspace, CreateRepositoryRequest, CreateWorkspaceRequest, UpdateRepositoryRequest};
-use crate::services::{GitService, RepositoryManagerService, WorkspaceManagerService};
+use crate::services::{GitService, RepositoryManagerService, WorkspaceManagerService, ScriptExecutor, TerminalService};
 use crate::services::git_service::{GitStatus, GitBranch, WorktreeInfo};
 use crate::services::repository_service::{RepositoryConfig, RepositoryValidationResult, AddRepositoryRequest, RepositoryScript};
 use crate::services::workspace_service::{WorkspaceMetadata, WorkspaceInfo, CreateWorkspaceRequest as CreateManagedWorkspaceRequest, ArchiveWorkspaceRequest, WorkspaceStatus};
+use crate::services::script_executor::{ScriptExecution, ScriptExecutionResult, ExecutionStatus};
+use crate::services::terminal_service::{TerminalSession, TerminalOutput, CommandExecution, TerminalStatus, OutputType};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ApiResponse<T> {
@@ -546,5 +550,204 @@ pub async fn get_workspace_statistics(
     match WorkspaceManagerService::get_workspace_statistics(&std::path::Path::new(&repo_path)) {
         Ok(stats) => Ok(ApiResponse::success(stats)),
         Err(e) => Ok(ApiResponse::error(format!("Failed to get workspace statistics: {}", e))),
+    }
+}
+
+// ==================== 脚本执行相关命令 ====================
+
+#[tauri::command]
+pub async fn create_script_execution(
+    state: State<'_, AppState>,
+    script_content: String,
+    working_directory: String,
+    environment: Option<HashMap<String, String>>,
+) -> Result<ApiResponse<String>, String> {
+    let working_dir = PathBuf::from(working_directory);
+    
+    match state.script_executor.create_execution(script_content, working_dir, environment).await {
+        Ok(execution_id) => Ok(ApiResponse::success(execution_id)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to create script execution: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn execute_script(
+    state: State<'_, AppState>,
+    execution_id: String,
+) -> Result<ApiResponse<ScriptExecutionResult>, String> {
+    match state.script_executor.execute_script(execution_id).await {
+        Ok(result) => Ok(ApiResponse::success(result)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to execute script: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn cancel_script_execution(
+    state: State<'_, AppState>,
+    execution_id: String,
+) -> Result<ApiResponse<()>, String> {
+    match state.script_executor.cancel_execution(&execution_id).await {
+        Ok(_) => Ok(ApiResponse::success(())),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to cancel script execution: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn get_script_execution_status(
+    state: State<'_, AppState>,
+    execution_id: String,
+) -> Result<ApiResponse<Option<ScriptExecution>>, String> {
+    let status = state.script_executor.get_execution_status(&execution_id);
+    Ok(ApiResponse::success(status))
+}
+
+#[tauri::command]
+pub async fn get_all_script_executions(
+    state: State<'_, AppState>,
+) -> Result<ApiResponse<Vec<ScriptExecution>>, String> {
+    let executions = state.script_executor.get_all_executions();
+    Ok(ApiResponse::success(executions))
+}
+
+#[tauri::command]
+pub async fn cleanup_completed_script_executions(
+    state: State<'_, AppState>,
+    keep_count: usize,
+) -> Result<ApiResponse<()>, String> {
+    state.script_executor.cleanup_completed_executions(keep_count);
+    Ok(ApiResponse::success(()))
+}
+
+// ==================== 终端相关命令 ====================
+
+#[tauri::command]
+pub async fn create_terminal(
+    state: State<'_, AppState>,
+    name: Option<String>,
+    working_directory: String,
+    environment: Option<HashMap<String, String>>,
+) -> Result<ApiResponse<String>, String> {
+    let working_dir = PathBuf::from(working_directory);
+    
+    match state.terminal_service.create_terminal(name, working_dir, environment).await {
+        Ok(terminal_id) => Ok(ApiResponse::success(terminal_id)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to create terminal: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn start_terminal(
+    state: State<'_, AppState>,
+    terminal_id: String,
+) -> Result<ApiResponse<()>, String> {
+    match state.terminal_service.start_terminal(&terminal_id).await {
+        Ok(_) => Ok(ApiResponse::success(())),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to start terminal: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn send_terminal_command(
+    state: State<'_, AppState>,
+    terminal_id: String,
+    command: String,
+) -> Result<ApiResponse<()>, String> {
+    match state.terminal_service.send_command(&terminal_id, &command).await {
+        Ok(_) => Ok(ApiResponse::success(())),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to send command to terminal: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn execute_single_command(
+    state: State<'_, AppState>,
+    command: String,
+    args: Vec<String>,
+    working_directory: String,
+    environment: Option<HashMap<String, String>>,
+) -> Result<ApiResponse<TerminalOutput>, String> {
+    let working_dir = PathBuf::from(working_directory);
+    let env = environment.unwrap_or_default();
+    
+    let execution = CommandExecution {
+        command,
+        args,
+        working_directory: working_dir,
+        environment: env,
+    };
+    
+    match state.terminal_service.execute_command(execution).await {
+        Ok(output) => Ok(ApiResponse::success(output)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to execute command: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn get_terminal_output(
+    state: State<'_, AppState>,
+    terminal_id: String,
+) -> Result<ApiResponse<Vec<TerminalOutput>>, String> {
+    match state.terminal_service.get_terminal_output(&terminal_id).await {
+        Ok(output) => Ok(ApiResponse::success(output)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to get terminal output: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn get_terminal_history(
+    state: State<'_, AppState>,
+    terminal_id: String,
+) -> Result<ApiResponse<Vec<TerminalOutput>>, String> {
+    match state.terminal_service.get_terminal_history(&terminal_id) {
+        Ok(history) => Ok(ApiResponse::success(history)),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to get terminal history: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn close_terminal(
+    state: State<'_, AppState>,
+    terminal_id: String,
+) -> Result<ApiResponse<()>, String> {
+    match state.terminal_service.close_terminal(&terminal_id).await {
+        Ok(_) => Ok(ApiResponse::success(())),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to close terminal: {}", e))),
+    }
+}
+
+#[tauri::command]
+pub async fn get_terminal_session(
+    state: State<'_, AppState>,
+    terminal_id: String,
+) -> Result<ApiResponse<Option<TerminalSession>>, String> {
+    let session = state.terminal_service.get_terminal_session(&terminal_id);
+    Ok(ApiResponse::success(session))
+}
+
+#[tauri::command]
+pub async fn get_all_terminals(
+    state: State<'_, AppState>,
+) -> Result<ApiResponse<Vec<TerminalSession>>, String> {
+    let terminals = state.terminal_service.get_all_terminals();
+    Ok(ApiResponse::success(terminals))
+}
+
+#[tauri::command]
+pub async fn cleanup_closed_terminals(
+    state: State<'_, AppState>,
+) -> Result<ApiResponse<()>, String> {
+    state.terminal_service.cleanup_closed_terminals();
+    Ok(ApiResponse::success(()))
+}
+
+#[tauri::command]
+pub async fn set_terminal_name(
+    state: State<'_, AppState>,
+    terminal_id: String,
+    name: String,
+) -> Result<ApiResponse<()>, String> {
+    match state.terminal_service.set_terminal_name(&terminal_id, name) {
+        Ok(_) => Ok(ApiResponse::success(())),
+        Err(e) => Ok(ApiResponse::error(format!("Failed to set terminal name: {}", e))),
     }
 }
