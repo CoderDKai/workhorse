@@ -70,6 +70,25 @@ pub fn run() {
                 commands::find_workspaces_by_status,
                 commands::cleanup_broken_workspaces,
                 commands::get_workspace_statistics,
+                // Script execution
+                commands::create_script_execution,
+                commands::execute_script,
+                commands::cancel_script_execution,
+                commands::get_script_execution_status,
+                commands::get_all_script_executions,
+                commands::cleanup_completed_script_executions,
+                // Terminal service
+                commands::create_terminal,
+                commands::start_terminal,
+                commands::send_terminal_command,
+                commands::execute_single_command,
+                commands::get_terminal_output,
+                commands::get_terminal_history,
+                commands::close_terminal,
+                commands::get_terminal_session,
+                commands::get_all_terminals,
+                commands::cleanup_closed_terminals,
+                commands::set_terminal_name,
             ])
             .run(tauri::generate_context!())
             .expect("error while running tauri application");
